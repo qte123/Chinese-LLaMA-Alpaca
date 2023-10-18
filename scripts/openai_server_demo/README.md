@@ -13,7 +13,10 @@ pip install fastapi uvicorn shortuuid sse_starlette
 
 启动脚本
 ``` shell
+# api请求版 
 python scripts/openai_server_demo/openai_api_server.py --base_model /path/to/base_model --lora_model /path/to/lora_model --gpus 0,1
+# websocket版
+python scripts/openai_server_demo/openai_api_websockets.py --base_model /path/to/base_model --lora_model /path/to/lora_model --gpus 0,1
 ```
 
 ### 参数说明
