@@ -179,7 +179,7 @@ logging.basicConfig(level=logging.INFO)  # 设置日志级别为 INFO
 async def get_chunk(streamer,websocket,model_id="chinese-llama-alpaca-2"):
      average_start_time = time.time()
      new_chunks = [] # 添加日志记录
-     new_chunk = ""  # 或其他适当的初始值 
+     new_chunk = ""  # 或其他适当的初始值
      for new_text in streamer:
             single_start_time = time.time()
             choice_data = ChatCompletionResponseStreamChoice(
@@ -192,11 +192,11 @@ async def get_chunk(streamer,websocket,model_id="chinese-llama-alpaca-2"):
             average_elapsed_time = end_time - average_start_time  # 计算平均输出时间
             single_elapsed_time = end_time - single_start_time  # 计算单个输出时间
             average_token_efficiency = calculate_token_efficiency(new_chunks, average_elapsed_time)  # 计算平均输出效率
-            single_token_efficiency = calculate_token_efficiency(new_chunk, single_elapsed_time)  
+            single_token_efficiency = calculate_token_efficiency(new_chunk, single_elapsed_time)
             chunk_data=chunk.json(exclude_unset=True, ensure_ascii=False)
             chunk_json = "{}".format(chunk_data)
             logging.info(f"Generated chunk: {chunk_json}")
-            chunk_dictionary = json.loads(chunk_data)  
+            chunk_dictionary = json.loads(chunk_data)
             if "content" not in chunk_dictionary["choices"][0]["delta"]:
                 new_chunk=""
             else:
@@ -207,7 +207,6 @@ async def get_chunk(streamer,websocket,model_id="chinese-llama-alpaca-2"):
                 new_chunks), "average_elapsed_time": average_elapsed_time, "average_token_efficiency": average_token_efficiency, "single_elapsed_time": single_elapsed_time, "single_token_efficiency": single_token_efficiency}
             logging.info(f"Generated chunk: {message}")
             await websocket.send_json(message)
-
 async def stream_predict(
     input,
     websocket: WebSocket,
@@ -263,7 +262,7 @@ async def stream_predict(
         # Thread(target=model.generate, kwargs=generation_kwargs).start()
         await get_chunk(streamer,websocket)
         generated_chunk = await asyncio.to_thread(model.generate, **generation_kwargs)
-        
+
         choice_data = ChatCompletionResponseStreamChoice(
             index=0, delta=DeltaMessage(), finish_reason="stop"
         )

@@ -357,6 +357,52 @@ async def create_chat_completion(request: ChatCompletionRequest):
     return ChatCompletionResponse(choices=choices)
 
 
+@app.get("/v1/chat/completions")
+async def create_chat_completion(request: ChatCompletionRequest):
+    """Creates a completion for the chat message"""
+    msgs = request.messages
+    if request.max_tokens is None:
+        request.max_tokens = 1024
+    print(request)
+    if isinstance(msgs, str):
+        msgs = [ChatMessage(role="user", content=msgs)]
+    else:
+        msgs = [ChatMessage(role=x["role"], content=x["content"]) for x in msgs]
+    if request.stream:
+        generate = stream_predict(
+            input=msgs,
+            max_new_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            temperature=request.temperature,
+            num_beams=request.num_beams,
+            repetition_penalty=request.repetition_penalty,
+            do_sample=request.do_sample,
+        )
+        return EventSourceResponse(generate, media_type="text/event-stream")
+
+    output = predict(
+        input=msgs,
+        max_new_tokens=request.max_tokens,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        temperature=request.temperature,
+        num_beams=request.num_beams,
+        repetition_penalty=request.repetition_penalty,
+        do_sample=request.do_sample,
+    )
+    print(output)
+    choices = [
+        ChatCompletionResponseChoice(index=i, message=msg) for i, msg in enumerate(msgs)
+    ]
+    choices += [
+        ChatCompletionResponseChoice(
+            index=len(choices), message=ChatMessage(role="assistant", content=output)
+        )
+    ]
+    return ChatCompletionResponse(choices=choices)
+
+
 @app.post("/v1/completions")
 async def create_completion(request: CompletionRequest):
     """Creates a completion"""
