@@ -420,7 +420,7 @@ def create_plot(outputs, max_token, name):
     x_length = [min_token_length, max_token]
     # 设置y轴的范围
     y_time_length = [0,150]
-    y_tps_length=[0,14]
+    y_tps_length=[0,16]
     y_wps_length=[0,40]
 
     # 创建图像
