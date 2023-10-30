@@ -394,7 +394,7 @@ def get_word_per_second(chunks, elapsed_time):
 
 
 # 数据处理和曲线绘制
-def create_plot(outputs, max_token, name):
+def create_plot(outputs, max_token, name,is_gpu=True):
     # 指定 data 文件夹的路径
     data_folder_plt = "data/plt"
     # 生成带有时间戳的文件名
@@ -526,13 +526,20 @@ def create_plot(outputs, max_token, name):
     
 
     plt.subplots_adjust(wspace=0.4)
-    num_gpus = torch.cuda.device_count()
     # 设置总标题
-    fig.suptitle(
+    if is_gpu:
+        num_gpus = torch.cuda.device_count()
+        fig.suptitle(
         f"{name}(GPUS{num_gpus}) Generation Efficiency",
         fontsize=16,
         fontweight="bold",
     )
+    else:
+        fig.suptitle(
+            f"{name}(ONLY CPU) Generation Efficiency",
+            fontsize=16,
+            fontweight="bold",
+        )
 
     # 生成带有时间戳的文件名
     png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
@@ -714,7 +721,7 @@ async def predict(
                     # yield history
                     if len(next_token_ids) >= max_new_tokens:
                         break
-            create_plot(outputs,1000,'chinese-llama-13B-16K')
+            create_plot(outputs,1000,'chinese-llama-13B-16K',is_gpu=True)
         except websockets.ConnectionClosedOK:
             print(f"WebSocket connection closed")    
 
