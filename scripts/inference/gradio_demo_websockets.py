@@ -418,10 +418,13 @@ def create_plot(outputs, max_token, name):
 
     # 设置x轴的范围
     x_length = [min_token_length, max_token]
+    # 设置y轴的范围
+    y_time_length = [0,150]
+    y_tps_length=[0,14]
+    y_wps_length=[0,40]
 
     # 创建图像
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
-
     # 指定需要标注的 x 坐标
     x_ticks = np.arange(0, max_token + 1, 100)
 
@@ -459,6 +462,7 @@ def create_plot(outputs, max_token, name):
     ax1.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax1.set_xticks(x_ticks)
+    ax1.set_ylim(y_time_length)
 
     # 绘制 "token_efficiency" 的曲线图
     ax2.plot(token_length, token_per_second, marker="", linestyle="-", color="r")
@@ -488,6 +492,7 @@ def create_plot(outputs, max_token, name):
     ax2.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax2.set_xticks(x_ticks)
+    ax2.set_ylim(y_tps_length)
 
     # 绘制 "token_aver_efficiency" 的曲线图
     ax3.plot(token_length, word_per_second, marker="", linestyle="-", color="g")
@@ -517,6 +522,8 @@ def create_plot(outputs, max_token, name):
     ax3.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax3.set_xticks(x_ticks)
+    ax3.set_ylim(y_wps_length)
+    
 
     plt.subplots_adjust(wspace=0.4)
     num_gpus = torch.cuda.device_count()
