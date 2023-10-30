@@ -1,17 +1,16 @@
 import argparse
 import os
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import websockets
-from typing import List
-import asyncio
 import uvicorn
 from threading import Thread
 from sse_starlette.sse import EventSourceResponse
 import logging
 import json
 import time
-import gc
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser()
 parser.add_argument('--base_model', default=None, type=str, required=True)
 parser.add_argument('--lora_model', default=None, type=str,help="If None, perform inference on the base model")
@@ -167,6 +166,8 @@ def generate_chat_prompt(messages: list):
             prompt += f" {msg.content}" + "</s>"
     return prompt
 
+
+###################分割线##############################
 # 计算token效率
 def calculate_token_efficiency(chunks, elapsed_time):
     # 计算输出token数量
@@ -201,7 +202,7 @@ def get_word_per_second(chunks, elapsed_time):
 
 
 # 数据处理和曲线绘制
-def create_plot(outputs, max_token, name):
+def create_plot(outputs, max_token, name,is_gpu=True):
     # 指定 data 文件夹的路径
     data_folder_plt = "data/plt"
     # 生成带有时间戳的文件名
@@ -300,14 +301,21 @@ def create_plot(outputs, max_token, name):
     # 设置 x 轴刻度的间隔
     ax3.set_xticks(x_ticks)
 
-    plt.subplots_adjust(wspace=0.4)
-    num_gpus = torch.cuda.device_count()
+    plt.subplots_adjust(wspace=0.4) 
     # 设置总标题
-    fig.suptitle(
+    if is_gpu:
+        num_gpus = torch.cuda.device_count()
+        fig.suptitle(
         f"{name}(GPUS{num_gpus}) Generation Efficiency",
         fontsize=16,
         fontweight="bold",
     )
+    else:
+        fig.suptitle(
+            f"{name}(ONLY CPU) Generation Efficiency",
+            fontsize=16,
+            fontweight="bold",
+        )
 
     # 生成带有时间戳的文件名
     png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
@@ -319,43 +327,57 @@ def create_plot(outputs, max_token, name):
     # 显示图像
     # plt.show()
 
-logging.basicConfig(level=logging.INFO)  # 设置日志级别为 INFO
 
-async def get_chunk(streamer,websocket,model_id="chinese-llama-alpaca-2"):
-     average_start_time = time.time()
-     new_chunks = [] # 添加日志记录
-     new_chunk = ""  # 或其他适当的初始值
-     for new_text in streamer:
-            single_start_time = time.time()
-            choice_data = ChatCompletionResponseStreamChoice(
-                index=0, delta=DeltaMessage(content=new_text), finish_reason=None
-            )
-            chunk = ChatCompletionResponse(
-                model=model_id, choices=[choice_data], object="chat.completion.chunk"
-            )
-            end_time = time.time()  # 获取结束时间戳
-            average_elapsed_time = end_time - average_start_time  # 计算平均输出时间
-            single_elapsed_time = end_time - single_start_time  # 计算单个输出时间
-            average_token_efficiency = calculate_token_efficiency(new_chunks, average_elapsed_time)  # 计算平均输出效率
-            single_token_efficiency = calculate_token_efficiency(new_chunk, single_elapsed_time)
-            chunk_data=chunk.json(exclude_unset=True, ensure_ascii=False)
-            chunk_json = "{}".format(chunk_data)
-            logging.info(f"Generated chunk: {chunk_json}")
-            chunk_dictionary = json.loads(chunk_data)
-            if "content" not in chunk_dictionary["choices"][0]["delta"]:
-                new_chunk=""
-            else:
-                new_chunk=chunk_dictionary["choices"][0]["delta"]["content"]
-            new_chunks.append(new_chunk)
 
-            message = {"type": "text", "chunk": new_chunk, "chunks": new_chunks, "token_length": len(
-                new_chunks), "average_elapsed_time": average_elapsed_time, "average_token_efficiency": average_token_efficiency, "single_elapsed_time": single_elapsed_time, "single_token_efficiency": single_token_efficiency}
-            logging.info(f"Generated chunk: {message}")
-            await websocket.send_json(message)
-async def stream_predict(
+
+def predict(
     input,
-    websocket: WebSocket,
-    max_new_tokens=128,
+    max_new_tokens=1024,
+    top_p=0.9,
+    temperature=0.2,
+    top_k=40,
+    num_beams=1,
+    repetition_penalty=1.1,
+    do_sample=True,
+    **kwargs,
+):
+    """
+    Main inference method
+    type(input) == str -> /v1/completions
+    type(input) == list -> /v1/chat/completions
+    """
+    if isinstance(input, str):
+        prompt = generate_completion_prompt(input)
+    else:
+        prompt = generate_chat_prompt(input)
+    inputs = tokenizer(prompt, return_tensors="pt")
+    input_ids = inputs["input_ids"].to(device)
+    generation_config = GenerationConfig(
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        num_beams=num_beams,
+        do_sample=do_sample,
+        **kwargs,
+    )
+    generation_config.return_dict_in_generate = True
+    generation_config.output_scores = False
+    generation_config.max_new_tokens = max_new_tokens
+    generation_config.repetition_penalty = float(repetition_penalty)
+    with torch.no_grad():
+        generation_output = model.generate(
+            input_ids=input_ids,
+            generation_config=generation_config,
+        )
+    s = generation_output.sequences[0]
+    output = tokenizer.decode(s, skip_special_tokens=True)
+    output = output.split("[/INST]")[-1].strip()
+    return output
+
+logging.basicConfig(level=logging.INFO)  # 设置日志级别为 INFO
+def stream_predict(
+    input,
+    max_new_tokens=1024,
     top_p=0.75,
     temperature=0.1,
     top_k=40,
@@ -365,62 +387,107 @@ async def stream_predict(
     model_id="chinese-llama-alpaca-2",
     **kwargs,
 ):
-    try:
-        choice_data = ChatCompletionResponseStreamChoice(
-            index=0, delta=DeltaMessage(role="assistant"), finish_reason=None
-        )
-        chunk = ChatCompletionResponse(
-            model=model_id,
-            choices=[choice_data],
-            object="chat.completion.chunk",
-        )
-        chunk_data=chunk.json(exclude_unset=True, ensure_ascii=False)
-        chunk_json = "{}".format(chunk_data)
-        # 添加日志记录
-        logging.info(f"Generated chunk: {chunk_json}")
-        # await websocket.send_json(chunk_data)
-        if isinstance(input, str):
-            prompt = generate_completion_prompt(input)
-        else:
-            prompt = generate_chat_prompt(input)
-        inputs = tokenizer(prompt, return_tensors="pt")
-        input_ids = inputs["input_ids"].to(device)
-        generation_config = GenerationConfig(
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            num_beams=num_beams,
-            do_sample=do_sample,
-            **kwargs,
-        )
+    average_start_time = time.time()
+    choice_data = ChatCompletionResponseStreamChoice(
+        index=0, delta=DeltaMessage(role="assistant"), finish_reason=None
+    )
+    chunk = ChatCompletionResponse(
+        model=model_id,
+        choices=[choice_data],
+        object="chat.completion.chunk",
+    )
+    chunk_json = "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
+    # 添加日志记录
+    logging.info(f"Generated chunk: {chunk_json}")
+    yield "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
 
-        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
-        generation_kwargs = dict(
-            streamer=streamer,
-            input_ids=input_ids,
-            generation_config=generation_config,
-            return_dict_in_generate=True,
-            output_scores=False,
-            max_new_tokens=max_new_tokens,
-            repetition_penalty=float(repetition_penalty),
-        )
-        # Thread(target=model.generate, kwargs=generation_kwargs).start()
-        await get_chunk(streamer,websocket)
-        generated_chunk = await asyncio.to_thread(model.generate, **generation_kwargs)
+    if isinstance(input, str):
+        prompt = generate_completion_prompt(input)
+    else:
+        prompt = generate_chat_prompt(input)
+    inputs = tokenizer(prompt, return_tensors="pt")
+    input_ids = inputs["input_ids"].to(device)
+    generation_config = GenerationConfig(
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        num_beams=num_beams,
+        do_sample=do_sample,
+        **kwargs,
+    )
 
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    generation_kwargs = dict(
+        streamer=streamer,
+        input_ids=input_ids,
+        generation_config=generation_config,
+        return_dict_in_generate=True,
+        output_scores=False,
+        max_new_tokens=max_new_tokens,
+        repetition_penalty=float(repetition_penalty),
+    )
+    Thread(target=model.generate, kwargs=generation_kwargs).start()
+    chunk=""
+    chunks=[]
+    old_tokens = "" # 用于保存先前生成的 tokens
+    character_length=0
+    token_efficiency_list=[]
+    outputs=[]
+    for new_text in streamer:
         choice_data = ChatCompletionResponseStreamChoice(
-            index=0, delta=DeltaMessage(), finish_reason="stop"
+            index=0, delta=DeltaMessage(content=new_text), finish_reason=None
         )
         chunk = ChatCompletionResponse(
             model=model_id, choices=[choice_data], object="chat.completion.chunk"
         )
-        chunk_data=chunk.json(exclude_unset=True, ensure_ascii=False)
-        chunk_json = "{}".format(chunk_data)
+        end_time = time.time()  # 获取结束时间戳
+        chunks.append(chunk)
+        token_length=len(chunks)
+        spend_time = end_time - average_start_time  # 计算平均输出时间
+        token_per_second=get_token_per_second(chunks, spend_time)
+        word_per_second=get_word_per_second(chunks, spend_time)
+        chunk_json = "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
+        output={
+                        "token_length": token_length, 
+                        "spend_time": spend_time,
+                        "token_per_second": token_per_second, 
+                        "word_per_second":word_per_second
+                    }
+        outputs.append(output)
         # 添加日志记录
         logging.info(f"Generated chunk: {chunk_json}")
-        # await websocket.send_json(chunk_data)
-    except websockets.ConnectionClosedOK:
-        print(f"WebSocket connection closed")
+        yield "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
+    create_plot(outputs,1000,'chinese-llama-13B-16K',is_gpu=False)
+    choice_data = ChatCompletionResponseStreamChoice(
+        index=0, delta=DeltaMessage(), finish_reason="stop"
+    )
+    chunk = ChatCompletionResponse(
+        model=model_id, choices=[choice_data], object="chat.completion.chunk"
+    )
+    chunk_json = "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
+    # 添加日志记录
+    logging.info(f"Generated chunk: {chunk_json}")
+    yield "{}".format(chunk.json(exclude_unset=True, ensure_ascii=False))
+    yield "[DONE]"
+
+
+def get_embedding(input):
+    """Get embedding main function"""
+    with torch.no_grad():
+        encoding = tokenizer(input, padding=True, return_tensors="pt")
+        input_ids = encoding["input_ids"].to(device)
+        attention_mask = encoding["attention_mask"].to(device)
+        model_output = model(input_ids, attention_mask, output_hidden_states=True)
+        data = model_output.hidden_states[-1]
+        mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
+        masked_embeddings = data * mask
+        sum_embeddings = torch.sum(masked_embeddings, dim=1)
+        seq_length = torch.sum(mask, dim=1)
+        embedding = sum_embeddings / seq_length
+        normalized_embeddings = F.normalize(embedding, p=2, dim=1)
+        ret = normalized_embeddings.squeeze(0).tolist()
+    return ret
+
 
 app = FastAPI()
 
@@ -431,28 +498,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# 使用一个列表来管理WebSocket连接
-websocket_connections: List[WebSocket] = []
-# 创建 WebSocket 聊天路由
 
-@app.websocket("/v1/chat/")
-async def create_chat_completion(websocket: WebSocket):
-    await websocket.accept()
-    websocket_connections.append(websocket)
+@app.post("/v1/chat/completions")
+async def create_chat_completion(request: ChatCompletionRequest):
     """Creates a completion for the chat message"""
-    try:
-        request_data = await websocket.receive_json()
-        logging.info(
-            f"Received message {request_data}")  # 记录接收的消息
-        request = ChatCompletionRequest(**request_data)
-        msgs=request.messages
-        if isinstance(msgs, str):
-            msgs = [ChatMessage(role="user", content=msgs)]
-        else:
-            msgs = [ChatMessage(role=x["role"], content=x["content"]) for x in msgs]
-        await stream_predict(
+    msgs = request.messages
+    if request.max_tokens is None:
+        request.max_tokens=1024
+    print(request)
+    if isinstance(msgs, str):
+        msgs = [ChatMessage(role="user", content=msgs)]
+    else:
+        msgs = [ChatMessage(role=x["role"], content=x["content"]) for x in msgs]
+    if request.stream:
+        generate = stream_predict(
+            input=msgs,
+            max_new_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            temperature=request.temperature,
+            num_beams=request.num_beams,
+            repetition_penalty=request.repetition_penalty,
+            do_sample=request.do_sample,
+        )
+        return EventSourceResponse(generate, media_type="text/event-stream")
+    
+    output = predict(
                 input=msgs,
-                websocket=websocket,
                 max_new_tokens=request.max_tokens,
                 top_p=request.top_p,
                 top_k=request.top_k,
@@ -460,25 +532,96 @@ async def create_chat_completion(websocket: WebSocket):
                 num_beams=request.num_beams,
                 repetition_penalty=request.repetition_penalty,
                 do_sample=request.do_sample,
-        )
-    except Exception as e:
-        print(f"WebSocket error: {e}")
-        # 手动执行垃圾回收
-        # 执行一些操作后清除缓存
-        torch.cuda.empty_cache()
-        gc.collect()
-    finally:
-        await websocket.close()  # 使用await等待连接关闭操作完成
-        # 连接关闭时从列表中移除
-        websocket_connections.remove(websocket)
-        # 执行一些操作后清除缓存
-        torch.cuda.empty_cache()
-        gc.collect()
-        pass
+    )
+    print(output)
+    choices = [
+            ChatCompletionResponseChoice(index=i, message=msg) for i, msg in enumerate(msgs)
+        ]
+    choices += [
+            ChatCompletionResponseChoice(
+                index=len(choices), message=ChatMessage(role="assistant", content=output)
+            )
+    ]
+    return ChatCompletionResponse(choices=choices)
 
-# 启动FastAPI应用
+
+@app.get("/v1/chat/completions")
+async def create_chat_completion(request: ChatCompletionRequest):
+    """Creates a completion for the chat message"""
+    msgs = request.messages
+    if request.max_tokens is None:
+        request.max_tokens = 1024
+    print(request)
+    if isinstance(msgs, str):
+        msgs = [ChatMessage(role="user", content=msgs)]
+    else:
+        msgs = [ChatMessage(role=x["role"], content=x["content"]) for x in msgs]
+    if request.stream:
+        generate = stream_predict(
+            input=msgs,
+            max_new_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            temperature=request.temperature,
+            num_beams=request.num_beams,
+            repetition_penalty=request.repetition_penalty,
+            do_sample=request.do_sample,
+        )
+        return EventSourceResponse(generate, media_type="text/event-stream")
+
+    output = predict(
+        input=msgs,
+        max_new_tokens=request.max_tokens,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        temperature=request.temperature,
+        num_beams=request.num_beams,
+        repetition_penalty=request.repetition_penalty,
+        do_sample=request.do_sample,
+    )
+    print(output)
+    choices = [
+        ChatCompletionResponseChoice(index=i, message=msg) for i, msg in enumerate(msgs)
+    ]
+    choices += [
+        ChatCompletionResponseChoice(
+            index=len(choices), message=ChatMessage(role="assistant", content=output)
+        )
+    ]
+    return ChatCompletionResponse(choices=choices)
+
+
+@app.post("/v1/completions")
+async def create_completion(request: CompletionRequest):
+    """Creates a completion"""
+    output = predict(
+        input=request.prompt,
+        max_new_tokens=request.max_tokens,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        temperature=request.temperature,
+        num_beams=request.num_beams,
+        repetition_penalty=request.repetition_penalty,
+        do_sample=request.do_sample,
+    )
+    choices = [CompletionResponseChoice(index=0, text=output)]
+    return CompletionResponse(choices=choices)
+
+
+@app.post("/v1/embeddings")
+async def create_embeddings(request: EmbeddingsRequest):
+    """Creates text embedding"""
+    embedding = get_embedding(request.input)
+    data = [{"object": "embedding", "embedding": embedding, "index": 0}]
+    return EmbeddingsResponse(data=data)
+
+
 if __name__ == "__main__":
-    import uvicorn
-    host = "0.0.0.0"
-    post = 19324
-    uvicorn.run(app, host=host, port=post)
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["access"][
+        "fmt"
+    ] = "%(asctime)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["default"][
+        "fmt"
+    ] = "%(asctime)s - %(levelname)s - %(message)s"
+    uvicorn.run(app, host="0.0.0.0", port=19324, workers=1, log_config=log_config)
