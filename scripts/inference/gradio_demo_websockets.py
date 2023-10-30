@@ -376,7 +376,7 @@ def calculate_token_aver_efficiency(token_efficiency_list):
     return token_aver_efficiency
 
 # 计算TPS
-def get_token_per_second(self, chunks, elapsed_time):
+def get_token_per_second(chunks, elapsed_time):
     # 计算输出token数量
     output_token_count = len(chunks)
     # 计算TPS
