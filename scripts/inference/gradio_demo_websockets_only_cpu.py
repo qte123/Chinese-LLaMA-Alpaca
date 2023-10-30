@@ -434,7 +434,6 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     selected_x = token_length[indices]
     indices_ = np.isin(token_length, x_ticks_)
     selected_x_ = token_length[indices_]
-
     # 绘制 "spend_time" 的曲线图
     ax1.plot(token_length, spend_times, marker="", linestyle="-", color="b")
     # 获取满足条件的 x 坐标及对应的 y 坐标
@@ -556,7 +555,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     plt.close(fig)
     # 显示图像
     # plt.show()
-    
+
 # 定义请求模型
 class ChatRequest(BaseModel):
     user_prompt: str
