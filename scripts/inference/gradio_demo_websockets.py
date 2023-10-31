@@ -421,7 +421,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 设置y轴的范围
     y_time_length = [0,150]
     y_tps_length=[0,16]
-    y_wps_length=[0,40]
+    y_wps_length=[0,50]
 
     # 创建图像
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
@@ -439,6 +439,14 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 获取满足条件的 x 坐标及对应的 y 坐标
     selected_y_time = spend_times[indices]
     selected_y_time_ = spend_times[indices_]
+    #设置表格
+    x_tables = np.append(selected_x, [token_length.iloc[-1]])
+    y_tables_time = np.append(selected_y_time, [spend_times.iloc[-1]])
+    data1 = {
+    "Token Length": x_tables,
+    "Spend Time": y_tables_time
+    }
+    df1 = pd.DataFrame(data1)
     for x, y in zip(selected_x, selected_y_time):
         ax1.annotate(
             f"{y:.2f}",
@@ -456,6 +464,14 @@ def create_plot(outputs, max_token, name,is_gpu=True):
         xytext=(0, 10),
         ha="center",
     )
+    
+    # 显示表格数据 1
+    cell_text1 = []
+    for row in range(len(df1)):
+        rounded_values = df1.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+        cell_text1.append(rounded_values.values)
+    ax1.table(cellText=cell_text1, colLabels=df1.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    
     ax1.scatter(token_length.iloc[-1], spend_times.iloc[-1], color="black")
     ax1.set_xlabel("Token Length")
     ax1.set_ylabel("Spend Time")
@@ -471,6 +487,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ax2.plot(token_length, token_per_second, marker="", linestyle="-", color="r")
     selected_y_efficiencies = token_per_second[indices]
     selected_y_efficiencies_ = token_per_second[indices_]
+    y_tables_efficiencies=np.append(selected_y_efficiencies,[token_per_second.iloc[-1]])
+    data2 = {
+    "Token Length": x_tables,
+    "Token Efficiency": y_tables_efficiencies
+    }
+    df2=pd.DataFrame(data2)
     for x, y in zip(selected_x, selected_y_efficiencies):
         ax2.annotate(
             f"{y:.2f}",
@@ -487,6 +509,14 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     xytext=(0, 10),
     ha="center",
     )
+    
+    # 显示表格数据 2
+    cell_text2 = []
+    for row in range(len(df2)):
+        rounded_values = df2.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+        cell_text2.append(rounded_values.values)
+    ax2.table(cellText=cell_text2, colLabels=df2.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+
     ax2.scatter(token_length.iloc[-1], token_per_second.iloc[-1], color="black")
     ax2.set_xlabel("Token Length")
     ax2.set_ylabel("Token per second (TPS)")
@@ -502,6 +532,13 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ax3.plot(token_length, word_per_second, marker="", linestyle="-", color="g")
     selected_y_aver_efficiencies = word_per_second[indices]
     selected_y_aver_efficiencies_ = word_per_second[indices_]
+    #设置表格
+    y_tables_aver_efficiencies=np.append(selected_y_aver_efficiencies,[word_per_second.iloc[-1]])
+    data3 = {
+    "Token Length": x_tables,
+    "Token Average Efficiency": y_tables_aver_efficiencies
+    }
+    df3 = pd.DataFrame(data3)
     for x, y in zip(selected_x, selected_y_aver_efficiencies):
         ax3.annotate(
             f"{y:.2f}",
@@ -518,6 +555,14 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     xytext=(0, 10),
     ha="center",
     )
+
+    # 显示表格数据 3
+    cell_text3 = []
+    for row in range(len(df3)):
+        rounded_values = df3.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+        cell_text3.append(rounded_values.values)
+    ax3.table(cellText=cell_text3, colLabels=df3.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+
     ax3.scatter(token_length.iloc[-1], word_per_second.iloc[-1], color="black")
     ax3.set_xlabel("Token Length")
     ax3.set_ylabel("Word per second (WPS)")
@@ -549,6 +594,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 生成带有时间戳的文件名
     png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
     png_filepath = os.path.join(data_folder_plt, png_filename)
+    plt.tight_layout()
     # 保存 PNG 文件
     plt.savefig(png_filepath)
     # 关闭图形
