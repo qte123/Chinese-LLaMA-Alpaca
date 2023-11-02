@@ -583,16 +583,17 @@ def create_plot(outputs, max_token, name,is_gpu=True):
         f"{name}(GPUS{num_gpus}) Generation Efficiency",
         fontsize=16,
         fontweight="bold",
-    )
+        )
+        png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
     else:
         fig.suptitle(
             f"{name}(ONLY CPU) Generation Efficiency",
             fontsize=16,
             fontweight="bold",
         )
+        png_filename = f"{name}_{filename}_only_cpu.png"
 
     # 生成带有时间戳的文件名
-    png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
     png_filepath = os.path.join(data_folder_plt, png_filename)
     # plt.tight_layout()
     # 保存 PNG 文件
