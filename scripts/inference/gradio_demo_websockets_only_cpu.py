@@ -420,7 +420,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     x_length = [min_token_length, max_token]
     # 设置y轴的范围
     y_time_length = [0,150]
-    y_tps_length=[0,16]
+    y_tps_length=[0,30]
     y_wps_length=[0,50]
 
     # 创建图像
@@ -465,12 +465,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
         ha="center",
     )
     
-    # 显示表格数据 1
-    cell_text1 = []
-    for row in range(len(df1)):
-        rounded_values = df1.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text1.append(rounded_values.values)
-    ax1.table(cellText=cell_text1, colLabels=df1.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 1
+    # cell_text1 = []
+    # for row in range(len(df1)):
+    #     rounded_values = df1.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text1.append(rounded_values.values)
+    # ax1.table(cellText=cell_text1, colLabels=df1.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
     
     ax1.scatter(token_length.iloc[-1], spend_times.iloc[-1], color="black")
     ax1.set_xlabel("Token Length")
@@ -510,12 +510,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ha="center",
     )
     
-    # 显示表格数据 2
-    cell_text2 = []
-    for row in range(len(df2)):
-        rounded_values = df2.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text2.append(rounded_values.values)
-    ax2.table(cellText=cell_text2, colLabels=df2.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 2
+    # cell_text2 = []
+    # for row in range(len(df2)):
+    #     rounded_values = df2.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text2.append(rounded_values.values)
+    # ax2.table(cellText=cell_text2, colLabels=df2.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
 
     ax2.scatter(token_length.iloc[-1], token_per_second.iloc[-1], color="black")
     ax2.set_xlabel("Token Length")
@@ -556,12 +556,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ha="center",
     )
 
-    # 显示表格数据 3
-    cell_text3 = []
-    for row in range(len(df3)):
-        rounded_values = df3.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text3.append(rounded_values.values)
-    ax3.table(cellText=cell_text3, colLabels=df3.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 3
+    # cell_text3 = []
+    # for row in range(len(df3)):
+    #     rounded_values = df3.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text3.append(rounded_values.values)
+    # ax3.table(cellText=cell_text3, colLabels=df3.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
 
     ax3.scatter(token_length.iloc[-1], word_per_second.iloc[-1], color="black")
     ax3.set_xlabel("Token Length")
@@ -594,7 +594,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 生成带有时间戳的文件名
     png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
     png_filepath = os.path.join(data_folder_plt, png_filename)
-    plt.tight_layout()
+    # plt.tight_layout()
     # 保存 PNG 文件
     plt.savefig(png_filepath)
     # 关闭图形
