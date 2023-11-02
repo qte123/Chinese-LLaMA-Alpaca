@@ -772,7 +772,11 @@ async def predict(
                     # yield history
                     if len(next_token_ids) >= max_new_tokens:
                         break
-            create_plot(outputs,1000,'chinese-llama-13B-16K',is_gpu=True)
+            num_gpus = torch.cuda.device_count()
+            if num_gpus > 0:       
+                create_plot(outputs,1000,'Chinese-Alpaca-2-7B-16K',is_gpu=True)
+            else:
+                create_plot(outputs,1000,'Chinese-Alpaca-2-7B-16K',is_gpu=False)
         except websockets.ConnectionClosedOK:
             print(f"WebSocket connection closed")    
 
