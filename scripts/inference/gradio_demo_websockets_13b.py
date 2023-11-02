@@ -415,13 +415,16 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 获取数据中的最小值和最大值
     min_token_length = np.min(token_length)
     max_token_length = np.max(token_length)
+    max_spend_time = np.max(spend_times)
+    max_token_per_second = np.max(token_per_second)
+    max_word_per_second = np.max(word_per_second)
 
     # 设置x轴的范围
     x_length = [min_token_length, max_token]
     # 设置y轴的范围
-    y_time_length = [0,150]
-    y_tps_length=[0,16]
-    y_wps_length=[0,50]
+    y_time_length = [0,max_spend_time]
+    y_tps_length=[0,max_token_per_second]
+    y_wps_length=[0,max_word_per_second]
 
     # 创建图像
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
@@ -465,12 +468,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
         ha="center",
     )
     
-    # 显示表格数据 1
-    cell_text1 = []
-    for row in range(len(df1)):
-        rounded_values = df1.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text1.append(rounded_values.values)
-    ax1.table(cellText=cell_text1, colLabels=df1.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 1
+    # cell_text1 = []
+    # for row in range(len(df1)):
+    #     rounded_values = df1.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text1.append(rounded_values.values)
+    # ax1.table(cellText=cell_text1, colLabels=df1.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
     
     ax1.scatter(token_length.iloc[-1], spend_times.iloc[-1], color="black")
     ax1.set_xlabel("Token Length")
@@ -481,7 +484,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ax1.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax1.set_xticks(x_ticks)
-    ax1.set_ylim(y_time_length)
+    # ax1.set_ylim(y_time_length)
 
     # 绘制 "token_efficiency" 的曲线图
     ax2.plot(token_length, token_per_second, marker="", linestyle="-", color="r")
@@ -510,12 +513,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ha="center",
     )
     
-    # 显示表格数据 2
-    cell_text2 = []
-    for row in range(len(df2)):
-        rounded_values = df2.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text2.append(rounded_values.values)
-    ax2.table(cellText=cell_text2, colLabels=df2.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 2
+    # cell_text2 = []
+    # for row in range(len(df2)):
+    #     rounded_values = df2.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text2.append(rounded_values.values)
+    # ax2.table(cellText=cell_text2, colLabels=df2.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
 
     ax2.scatter(token_length.iloc[-1], token_per_second.iloc[-1], color="black")
     ax2.set_xlabel("Token Length")
@@ -526,7 +529,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ax2.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax2.set_xticks(x_ticks)
-    ax2.set_ylim(y_tps_length)
+    # ax2.set_ylim(y_tps_length)
 
     # 绘制 "token_aver_efficiency" 的曲线图
     ax3.plot(token_length, word_per_second, marker="", linestyle="-", color="g")
@@ -556,12 +559,12 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ha="center",
     )
 
-    # 显示表格数据 3
-    cell_text3 = []
-    for row in range(len(df3)):
-        rounded_values = df3.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
-        cell_text3.append(rounded_values.values)
-    ax3.table(cellText=cell_text3, colLabels=df3.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
+    # # 显示表格数据 3
+    # cell_text3 = []
+    # for row in range(len(df3)):
+    #     rounded_values = df3.iloc[row].round(2)  # 对每一行数据四舍五入保留两位小数
+    #     cell_text3.append(rounded_values.values)
+    # ax3.table(cellText=cell_text3, colLabels=df3.columns, cellLoc='center', loc='bottom', bbox=[0, -0.55, 1, 0.3])
 
     ax3.scatter(token_length.iloc[-1], word_per_second.iloc[-1], color="black")
     ax3.set_xlabel("Token Length")
@@ -572,7 +575,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     ax3.set_xlim(x_length)
     # 设置 x 轴刻度的间隔
     ax3.set_xticks(x_ticks)
-    ax3.set_ylim(y_wps_length)
+    # ax3.set_ylim(y_wps_length)
     
 
     plt.subplots_adjust(wspace=0.4)
@@ -594,7 +597,7 @@ def create_plot(outputs, max_token, name,is_gpu=True):
     # 生成带有时间戳的文件名
     png_filename = f"{name}_{filename}_gpus{num_gpus}.png"
     png_filepath = os.path.join(data_folder_plt, png_filename)
-    plt.tight_layout()
+    # plt.tight_layout()
     # 保存 PNG 文件
     plt.savefig(png_filepath)
     # 关闭图形
@@ -772,7 +775,11 @@ async def predict(
                     # yield history
                     if len(next_token_ids) >= max_new_tokens:
                         break
-            create_plot(outputs,1000,'chinese-llama-13B-16K',is_gpu=True)
+            num_gpus = torch.cuda.device_count()
+            if num_gpus > 0:
+                create_plot(outputs, 1000, "Chinese-Alpaca-2-7B-16K",is_gpu=True)
+            else:
+                create_plot(outputs, 1000, "Chinese-Alpaca-2-7B-16K",is_gpu=False)
         except websockets.ConnectionClosedOK:
             print(f"WebSocket connection closed")    
 
